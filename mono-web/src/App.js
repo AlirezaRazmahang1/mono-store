@@ -1,5 +1,5 @@
 import { useState, useEffect, createContext, useContext, useRef } from "react";
-import "@/App.css";
+import "./App.css";
 import { BrowserRouter, Routes, Route, useNavigate, useLocation, Link } from "react-router-dom";
 import { Menu, X, ShoppingBag, ArrowRight, Instagram, Twitter, Heart, User, Package, MapPin, LogOut, Plus, Minus, Trash2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
