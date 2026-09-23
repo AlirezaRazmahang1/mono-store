@@ -1,13 +1,54 @@
-import { useState, useEffect, createContext, useContext, useRef } from "react";
+import React, { useState, useEffect, createContext, useContext, useRef, useParams } from "react";
 import "./App.css";
 import { BrowserRouter, Routes, Route, useNavigate, useLocation, Link } from "react-router-dom";
 import { Menu, X, ShoppingBag, ArrowRight, Instagram, Twitter, Heart, User, Package, MapPin, LogOut, Plus, Minus, Trash2, Check } from "lucide-react";
-import { Button } from "./components/ui/button";
-import { Input } from "./components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./components/ui/dialog";
 import { Toaster, toast } from "sonner";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+// ==================== UI COMPONENTS (INLINE) ====================
+
+const Button = ({ children, className = "", variant = "default", ...props }) => {
+  const baseStyle = "px-6 py-3 font-body text-sm tracking-[0.2em] uppercase transition-all duration-300 flex items-center justify-center cursor-pointer";
+  const variants = {
+    default: "bg-white text-black hover:bg-white/90",
+    outline: "border border-white/20 text-white hover:border-white/50"
+  };
+  return (
+    <button className={`${baseStyle} ${variants[variant] || variants.default} ${className}`} {...props}>
+      {children}
+    </button>
+  );
+};
+
+const Input = ({ className = "", ...props }) => {
+  return (
+    <input
+      className={`w-full px-4 py-3 bg-transparent border border-white/20 text-white placeholder:text-white/40 focus:outline-none focus:border-white transition-colors ${className}`}
+      {...props}
+    />
+  );
+};
+
+const Dialog = ({ open, onOpenChange, children }) => {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+      <div className="relative w-full max-w-md bg-[#0A0A0A] border border-white/10 p-6 text-white">
+        <button onClick={() => onOpenChange(false)} className="absolute top-4 right-4 text-white/60 hover:text-white">
+          ✕
+        </button>
+        {children}
+      </div>
+    </div>
+  );
+};
+
+const DialogContent = ({ children, className = "" }) => <div className={className}>{children}</div>;
+const DialogHeader = ({ children }) => <div className="mb-4">{children}</div>;
+const DialogTitle = ({ children, className = "" }) => <h2 className={`font-display text-2xl font-light ${className}`}>{children}</h2>;
+const DialogDescription = ({ children, className = "" }) => <p className={`text-white/60 text-sm mt-2 ${className}`}>{children}</p>;
+
 
 // ==================== CONTEXT ====================
 
@@ -38,7 +79,6 @@ const AuthProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    // CRITICAL: If returning from OAuth callback, skip the /me check
     if (window.location.hash?.includes("session_id=")) {
       setLoading(false);
       return;
@@ -47,7 +87,6 @@ const AuthProvider = ({ children }) => {
   }, []);
 
   const login = () => {
-    // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS
     const redirectUrl = window.location.origin + "/auth/callback";
     window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
   };
@@ -1158,7 +1197,7 @@ const AccountPage = () => {
 // ==================== AUTH CALLBACK ====================
 
 const AuthCallback = () => {
-  const { setUser, checkAuth } = useAuth();
+  const { setUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const hasProcessed = useRef(false);
@@ -1214,12 +1253,9 @@ const AuthCallback = () => {
 
 // ==================== APP ROUTER ====================
 
-import { useParams } from "react-router-dom";
-
 const AppRouter = () => {
   const location = useLocation();
   
-  // Check for OAuth callback synchronously
   if (location.hash?.includes("session_id=")) {
     return <AuthCallback />;
   }
