@@ -1,7 +1,8 @@
 fastapi
 uvicorn
-pydantic
+pydantic[email]
 motor
 python-dotenv
 httpx
 stripe
+passlib[bcrypt]
