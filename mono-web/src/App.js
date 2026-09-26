@@ -199,6 +199,7 @@ const products = [
     id: "hoodie-1",
     name: "Venom Oversized Hoodie",
     type: "Hoodie",
+    category: "men",
     price: 450,
     description: "Premium heavyweight oversized hoodie with hidden kangaroo pocket. Crafted from 100% organic cotton with a serpentine-inspired silhouette.",
     sizes: ["XS", "S", "M", "L", "XL", "XXL"],
@@ -209,6 +210,7 @@ const products = [
     id: "hoodie-2",
     name: "Coil Heavyweight Hoodie",
     type: "Hoodie",
+    category: "women",
     price: 480,
     description: "Double-layered heavyweight construction with matte black hardware. Features extended sleeves and dropped shoulders.",
     sizes: ["XS", "S", "M", "L", "XL", "XXL"],
@@ -218,6 +220,7 @@ const products = [
     id: "pants-1",
     name: "Mamba Leather Trousers",
     type: "Pants",
+    category: "men",
     price: 850,
     description: "Full-grain leather trousers with scaled texture detailing. Tailored fit with concealed zip closure.",
     sizes: ["XS", "S", "M", "L", "XL"],
@@ -227,6 +230,7 @@ const products = [
     id: "pants-2",
     name: "Shed Cargo Pants",
     type: "Pants",
+    category: "women",
     price: 620,
     description: "Technical cargo pants with modular pocket system. Water-resistant fabric with articulated knees.",
     sizes: ["XS", "S", "M", "L", "XL", "XXL"],
@@ -236,6 +240,7 @@ const products = [
     id: "tshirt-1",
     name: "Fangs Boxy Tee",
     type: "T-shirt",
+    category: "men",
     price: 220,
     description: "Oversized boxy silhouette tee in heavyweight cotton. Features subtle embossed logo at back neck.",
     sizes: ["XS", "S", "M", "L", "XL", "XXL"],
@@ -351,11 +356,14 @@ const Navigation = () => {
           <Link to="/shop" data-testid="nav-link-shop" className="font-body text-sm tracking-[0.2em] uppercase text-white/60 hover:text-white transition-colors duration-300">
             Shop
           </Link>
+          <Link to="/shop?category=men" className="font-body text-sm tracking-[0.2em] uppercase text-white/60 hover:text-white transition-colors duration-300">
+            Men
+          </Link>
+          <Link to="/shop?category=women" className="font-body text-sm tracking-[0.2em] uppercase text-white/60 hover:text-white transition-colors duration-300">
+            Women
+          </Link>
           <a href="/#about" data-testid="nav-link-about" className="font-body text-sm tracking-[0.2em] uppercase text-white/60 hover:text-white transition-colors duration-300">
             About
-          </a>
-          <a href="/#contact" data-testid="nav-link-contact" className="font-body text-sm tracking-[0.2em] uppercase text-white/60 hover:text-white transition-colors duration-300">
-            Contact
           </a>
         </div>
 
@@ -404,6 +412,12 @@ const Navigation = () => {
           <div className="px-6 py-8 flex flex-col gap-6">
             <Link to="/shop" className="font-body text-lg tracking-[0.15em] uppercase text-white/80 hover:text-white" onClick={() => setIsMenuOpen(false)}>
               Shop
+            </Link>
+            <Link to="/shop?category=men" className="font-body text-lg tracking-[0.15em] uppercase text-white/80 hover:text-white" onClick={() => setIsMenuOpen(false)}>
+              Men
+            </Link>
+            <Link to="/shop?category=women" className="font-body text-lg tracking-[0.15em] uppercase text-white/80 hover:text-white" onClick={() => setIsMenuOpen(false)}>
+              Women
             </Link>
             <a href="/#about" className="font-body text-lg tracking-[0.15em] uppercase text-white/80 hover:text-white" onClick={() => setIsMenuOpen(false)}>
               About
@@ -628,9 +642,9 @@ const Footer = () => {
             <h4 className="font-body uppercase tracking-[0.2em] text-xs text-white mb-6">Shop</h4>
             <ul className="space-y-3">
               <li><Link to="/shop" className="footer-link font-body text-sm">All Products</Link></li>
+              <li><Link to="/shop?category=men" className="footer-link font-body text-sm">Men</Link></li>
+              <li><Link to="/shop?category=women" className="footer-link font-body text-sm">Women</Link></li>
               <li><Link to="/shop?type=Hoodie" className="footer-link font-body text-sm">Hoodies</Link></li>
-              <li><Link to="/shop?type=Pants" className="footer-link font-body text-sm">Pants</Link></li>
-              <li><Link to="/shop?type=T-shirt" className="footer-link font-body text-sm">T-Shirts</Link></li>
             </ul>
           </div>
 
@@ -674,11 +688,15 @@ const ShopPage = () => {
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
+    const category = params.get("category");
     const type = params.get("type");
-    if (type) setFilter(type);
+    if (category) setFilter(category);
+    else if (type) setFilter(type);
   }, [location]);
 
-  const filteredProducts = filter === "all" ? products : products.filter(p => p.type === filter);
+  const filteredProducts = filter === "all" 
+    ? products 
+    : products.filter(p => p.category === filter || p.type === filter);
 
   return (
     <div className="pt-32 pb-24 bg-[#050505] min-h-screen">
@@ -686,7 +704,7 @@ const ShopPage = () => {
         <h1 className="font-display text-4xl sm:text-5xl tracking-tighter font-light text-white mb-12">Shop</h1>
         
         <div className="flex gap-4 mb-12 flex-wrap">
-          {["all", "Hoodie", "Pants", "T-shirt"].map(type => (
+          {["all", "men", "women", "Hoodie", "Pants", "T-shirt"].map(type => (
             <button
               key={type}
               onClick={() => setFilter(type)}
@@ -695,7 +713,7 @@ const ShopPage = () => {
               }`}
               data-testid={`filter-${type}`}
             >
-              {type === "all" ? "All" : type}
+              {type === "all" ? "All Products" : type.toUpperCase()}
             </button>
           ))}
         </div>
@@ -719,7 +737,6 @@ const ProductDetailPage = () => {
   const [quantity, setQuantity] = useState(1);
   const { addToCart } = useCart();
   const { user, login } = useAuth();
-  const navigate = useNavigate();
 
   if (!product) {
     return (
@@ -960,7 +977,6 @@ const CartPage = () => {
 
 const CheckoutSuccessPage = () => {
   const [status, setStatus] = useState("checking");
-  const [order, setOrder] = useState(null);
   const location = useLocation();
   const navigate = useNavigate();
   const hasPolled = useRef(false);
@@ -989,7 +1005,6 @@ const CheckoutSuccessPage = () => {
         
         if (data.payment_status === "paid") {
           setStatus("success");
-          setOrder(data);
           return;
         } else if (data.status === "expired") {
           setStatus("expired");
