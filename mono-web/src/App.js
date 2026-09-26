@@ -63,6 +63,7 @@ export const useCart = () => useContext(CartContext);
 const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   const checkAuth = async () => {
     try {
@@ -79,17 +80,12 @@ const AuthProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    if (window.location.hash?.includes("session_id=")) {
-      setLoading(false);
-      return;
-    }
     checkAuth();
   }, []);
 
-  const login = () => {
-    const redirectUrl = window.location.origin + "/auth/callback";
-    window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
-  };
+  // "login" opens the sign-in modal; AuthModal performs the actual request.
+  const login = () => setIsAuthModalOpen(true);
+  const closeAuthModal = () => setIsAuthModalOpen(false);
 
   const logout = async () => {
     await fetch(`${API}/auth/logout`, { method: "POST", credentials: "include" });
@@ -98,9 +94,130 @@ const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, setUser, loading, login, logout, checkAuth }}>
+    <AuthContext.Provider value={{ user, setUser, loading, login, logout, checkAuth, isAuthModalOpen, closeAuthModal }}>
       {children}
     </AuthContext.Provider>
+  );
+};
+
+// ==================== AUTH MODAL ====================
+
+const AuthModal = () => {
+  const { isAuthModalOpen, closeAuthModal, setUser } = useAuth();
+  const { cartSessionId, fetchCart } = useCart();
+  const [mode, setMode] = useState("login");
+  const [form, setForm] = useState({ email: "", password: "", name: "" });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleClose = () => {
+    setError("");
+    setForm({ email: "", password: "", name: "" });
+    closeAuthModal();
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError("");
+
+    const endpoint = mode === "login" ? "/auth/login" : "/auth/register";
+    const payload = mode === "login"
+      ? { email: form.email, password: form.password, session_id: cartSessionId }
+      : { email: form.email, password: form.password, name: form.name, session_id: cartSessionId };
+
+    try {
+      const res = await fetch(`${API}${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.detail || "Something went wrong. Please try again.");
+        setSubmitting(false);
+        return;
+      }
+
+      setUser(data);
+      fetchCart();
+      toast.success(mode === "login" ? "Welcome back" : "Account created");
+      handleClose();
+    } catch (e) {
+      setError("Network error. Please try again.");
+    }
+    setSubmitting(false);
+  };
+
+  return (
+    <Dialog open={isAuthModalOpen} onOpenChange={handleClose}>
+      <DialogContent className="bg-[#0A0A0A] border border-white/10 text-white max-w-md" data-testid="auth-modal">
+        <DialogHeader>
+          <DialogTitle className="font-display text-3xl tracking-tighter font-light">
+            {mode === "login" ? "Sign In" : "Create Account"}
+          </DialogTitle>
+          <DialogDescription className="text-white/60 font-body">
+            {mode === "login"
+              ? "Welcome back to MONO."
+              : "Join MONO for order tracking, wishlists, and faster checkout."}
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+          {mode === "register" && (
+            <Input
+              type="text"
+              placeholder="Full name"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              required
+              className="bg-transparent border-white/20 text-white placeholder:text-white/40 rounded-none"
+              data-testid="auth-name-input"
+            />
+          )}
+          <Input
+            type="email"
+            placeholder="Email"
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+            required
+            className="bg-transparent border-white/20 text-white placeholder:text-white/40 rounded-none"
+            data-testid="auth-email-input"
+          />
+          <Input
+            type="password"
+            placeholder="Password"
+            value={form.password}
+            onChange={(e) => setForm({ ...form, password: e.target.value })}
+            required
+            minLength={8}
+            className="bg-transparent border-white/20 text-white placeholder:text-white/40 rounded-none"
+            data-testid="auth-password-input"
+          />
+
+          {error && <p className="text-red-400 text-sm font-body" data-testid="auth-error">{error}</p>}
+
+          <Button
+            type="submit"
+            disabled={submitting}
+            className="w-full btn-primary rounded-none"
+            data-testid="auth-submit-btn"
+          >
+            {submitting ? "Please wait..." : mode === "login" ? "Sign In" : "Create Account"}
+          </Button>
+        </form>
+
+        <button
+          onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(""); }}
+          className="mt-4 text-sm text-white/60 hover:text-white underline font-body"
+          data-testid="auth-mode-toggle"
+        >
+          {mode === "login" ? "Need an account? Sign up" : "Already have an account? Sign in"}
+        </button>
+      </DialogContent>
+    </Dialog>
   );
 };
 
@@ -1209,72 +1326,9 @@ const AccountPage = () => {
   );
 };
 
-// ==================== AUTH CALLBACK ====================
-
-const AuthCallback = () => {
-  const { setUser } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const hasProcessed = useRef(false);
-
-  useEffect(() => {
-    if (hasProcessed.current) return;
-    hasProcessed.current = true;
-
-    const processAuth = async () => {
-      const hash = location.hash;
-      const sessionIdMatch = hash.match(/session_id=([^&]+)/);
-      
-      if (!sessionIdMatch) {
-        navigate("/");
-        return;
-      }
-
-      const sessionId = sessionIdMatch[1];
-
-      try {
-        const res = await fetch(`${API}/auth/session`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ session_id: sessionId })
-        });
-
-        if (res.ok) {
-          const user = await res.json();
-          setUser(user);
-          navigate("/", { state: { user } });
-        } else {
-          navigate("/");
-        }
-      } catch (e) {
-        console.error("Auth callback failed:", e);
-        navigate("/");
-      }
-    };
-
-    processAuth();
-  }, []);
-
-  return (
-    <div className="min-h-screen bg-[#050505] flex items-center justify-center">
-      <div className="text-center">
-        <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
-        <p className="font-body text-white/60">Signing you in...</p>
-      </div>
-    </div>
-  );
-};
-
 // ==================== APP ROUTER ====================
 
 const AppRouter = () => {
-  const location = useLocation();
-  
-  if (location.hash?.includes("session_id=")) {
-    return <AuthCallback />;
-  }
-
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
@@ -1283,7 +1337,6 @@ const AppRouter = () => {
       <Route path="/cart" element={<CartPage />} />
       <Route path="/checkout/success" element={<CheckoutSuccessPage />} />
       <Route path="/account" element={<AccountPage />} />
-      <Route path="/auth/callback" element={<AuthCallback />} />
     </Routes>
   );
 };
@@ -1303,6 +1356,7 @@ function App() {
             </main>
             <Footer />
             <NewsletterPopup />
+            <AuthModal />
             <Toaster position="bottom-right" theme="dark" />
           </div>
         </CartProvider>
