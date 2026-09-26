@@ -4,4 +4,4 @@ pydantic
 motor
 python-dotenv
 httpx
-emergent-integrations
+stripe
