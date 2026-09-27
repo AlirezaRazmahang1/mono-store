@@ -43,22 +43,14 @@ SESSION_TTL_DAYS = 30
 
 app = FastAPI(title="MONO API")
 
-# ==================== CORS SETUP ====================
-raw_origins = os.environ.get('CORS_ORIGINS', 'https://monowearofficial.netlify.app')
-frontend_fallback = os.environ.get('FRONTEND_URL', 'https://monowearofficial.netlify.app')
-
-origins_list = []
-for origin in (raw_origins + "," + frontend_fallback).split(","):
-    cleaned = origin.strip()
-    if cleaned and cleaned not in origins_list:
-        origins_list.append(cleaned)
-
-if "https://monowearofficial.netlify.app" not in origins_list:
-    origins_list.append("https://monowearofficial.netlify.app")
-
+# ==================== CORS SETUP (EXPLICIT & SECURE) ====================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins_list,
+    allow_origins=[
+        "https://monowearofficial.netlify.app",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
