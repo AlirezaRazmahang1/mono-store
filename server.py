@@ -36,19 +36,30 @@ stripe.api_key = stripe_key
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
+FRONTEND_URL = os.environ.get('FRONTEND_URL', 'https://monowearofficial.netlify.app')
 COOKIE_SECURE = os.environ.get('COOKIE_SECURE', 'true').lower() == 'true'
 SESSION_COOKIE = "session_token"
 SESSION_TTL_DAYS = 30
 
 app = FastAPI(title="MONO API")
 
-# CORS: no wildcard — credentialed requests require an explicit origin list.
-allowed_origins = [o.strip() for o in os.environ.get('CORS_ORIGINS', FRONTEND_URL).split(',') if o.strip()]
+# ==================== CORS SETUP ====================
+raw_origins = os.environ.get('CORS_ORIGINS', 'https://monowearofficial.netlify.app')
+frontend_fallback = os.environ.get('FRONTEND_URL', 'https://monowearofficial.netlify.app')
+
+origins_list = []
+for origin in (raw_origins + "," + frontend_fallback).split(","):
+    cleaned = origin.strip()
+    if cleaned and cleaned not in origins_list:
+        origins_list.append(cleaned)
+
+if "https://monowearofficial.netlify.app" not in origins_list:
+    origins_list.append("https://monowearofficial.netlify.app")
+
 app.add_middleware(
     CORSMiddleware,
+    allow_origins=origins_list,
     allow_credentials=True,
-    allow_origins=allowed_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -227,7 +238,6 @@ async def require_user(request: Request) -> Dict:
     return user
 
 async def merge_guest_cart(user_id: str, session_id: Optional[str]):
-    """Fold a guest cart (identified by session_id) into the newly logged-in user's cart."""
     if not session_id:
         return
 
